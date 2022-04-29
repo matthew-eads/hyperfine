@@ -62,6 +62,14 @@ impl<'a> Benchmark<'a> {
             .map_err(|_| anyhow!(error_output))
     }
 
+    /// Run the command specified by `--setup`.
+    fn run_setup_command(&self, command: &Command<'_>) -> Result<TimingResult> {
+        let error_output = "The setup command terminated with a non-zero exit code. \
+                            Append ' || true' to the command if you are sure that this can be ignored.";
+
+        self.run_intermediate_command(command, error_output)
+    }
+
     /// Run the command specified by `--cleanup`.
     fn run_cleanup_command(
         &self,
@@ -81,15 +89,6 @@ impl<'a> Benchmark<'a> {
             .transpose()?
             .unwrap_or_default())
     }
-
-    /// Run the command specified by `--setup`.
-    fn run_setup_command(&self, command: &Command<'_>) -> Result<TimingResult> {
-        let error_output = "The setup command terminated with a non-zero exit code. \
-                            Append ' || true' to the command if you are sure that this can be ignored.";
-
-        self.run_intermediate_command(command, error_output)
-    }
-
 
     /// Run the command specified by `--prepare`.
     fn run_preparation_command(&self, command: &Command<'_>) -> Result<TimingResult> {
