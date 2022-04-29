@@ -62,26 +62,6 @@ impl<'a> Benchmark<'a> {
             .map_err(|_| anyhow!(error_output))
     }
 
-    /// Run the command specified by `--setup`.
-    fn run_setup_command(
-        &self,
-        parameters: impl IntoIterator<Item = ParameterNameAndValue<'a>>,
-    ) -> Result<TimingResult> {
-        let command = self
-            .options
-            .setup_command
-            .as_ref()
-            .map(|setup_command| Command::new_parametrized(None, setup_command, parameters));
-
-        let error_output = "The setup command terminated with a non-zero exit code. \
-                            Append ' || true' to the command if you are sure that this can be ignored.";
-
-        Ok(command
-            .map(|cmd| self.run_intermediate_command(&cmd, error_output))
-            .transpose()?
-            .unwrap_or_default())
-    }
-
     /// Run the command specified by `--cleanup`.
     fn run_cleanup_command(
         &self,
@@ -101,6 +81,15 @@ impl<'a> Benchmark<'a> {
             .transpose()?
             .unwrap_or_default())
     }
+
+    /// Run the command specified by `--setup`.
+    fn run_setup_command(&self, command: &Command<'_>) -> Result<TimingResult> {
+        let error_output = "The setup command terminated with a non-zero exit code. \
+                            Append ' || true' to the command if you are sure that this can be ignored.";
+
+        self.run_intermediate_command(command, error_output)
+    }
+
 
     /// Run the command specified by `--prepare`.
     fn run_preparation_command(&self, command: &Command<'_>) -> Result<TimingResult> {
@@ -147,7 +136,27 @@ impl<'a> Benchmark<'a> {
                 .transpose()
         };
 
-        self.run_setup_command(self.command.get_parameters().iter().cloned())?;
+        let setup_command = self.options.setup_command.as_ref().map(|values| {
+            let setup_command = if values.len() == 1 {
+                &values[0]
+            } else {
+                &values[self.number]
+            };
+            Command::new_parametrized(
+                None,
+                setup_command,
+                self.command.get_parameters().iter().cloned(),
+            )
+        });
+        
+        let run_setup_command = || {            
+            setup_command
+                .as_ref()
+                .map(|cmd| self.run_setup_command(cmd))
+                .transpose()
+        };
+
+        run_setup_command()?;
 
         // Warmup phase
         if self.options.warmup_count > 0 {
